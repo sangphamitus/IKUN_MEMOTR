@@ -197,8 +197,8 @@ class MeMOTR(nn.Module):
                     ret_frame[0].crop(torch.clamp(box,0).cpu().numpy())
                 ) for box in bboxes],
                 dim=0
-            ).to(ikun_func.device),
-            "global_img":torch.stack([ikun_func.transform[2](ret_frame[0]) for _ in bboxes],dim=0).to(ikun_func.device)
+            ),
+            "global_img":torch.stack([ikun_func.transform[2](ret_frame[0]) for _ in bboxes],dim=0)
         }
         mask_check_box = ikun_func(x,sentence=sentence, epoch=epoch)
         n_last_det=len(mask_check_box)-self.n_det_queries

@@ -235,7 +235,7 @@ class IKUN_Model(nn.Module):
             dropout=0.,
         )
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        # self.device = torch.device("cpu")
         local_reso = 7 * 7
         local_scale = local_reso ** -0.5
         self.pos_emb_local = nn.Parameter(local_scale * randn(local_reso))
@@ -310,7 +310,7 @@ class IKUN_Model(nn.Module):
 
     def forward(self, x,sentence, epoch=1e5):
         output = dict()
-        exp =  tokenize(expression_conversion(sentence)).to(self.device)
+        exp =  tokenize(expression_conversion(sentence)).to(torch.device("cpu"))
         textual_hidden, textual_feat = self.textual_encoding(exp)
         if self.config["KUM_MODE"] and (epoch >= self.config["TG_EPOCH"]):
             if self.config["KUM_MODE"] == 'cascade attention':
@@ -474,7 +474,7 @@ class MeMOTR_IKUN(nn.Module):
         super().__init__()
         self.memotr_model = memotr_model
         self.ikun_model = IKUN_Model(config=config)
-        self.ikun_model.to(self.ikun_model.device)
+        # self.ikun_model.to(self.ikun_model.device)
 
     def forward(self,  frame: NestedTensor, tracks: list[TrackInstances],ret_frame,sentence:str, epoch=1e5):
         ikun_func=self.ikun_model
