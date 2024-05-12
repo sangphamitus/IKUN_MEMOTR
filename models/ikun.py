@@ -234,7 +234,8 @@ class IKUN_Model(nn.Module):
             num_heads=4,
             dropout=0.,
         )
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
         local_reso = 7 * 7
         local_scale = local_reso ** -0.5
         self.pos_emb_local = nn.Parameter(local_scale * randn(local_reso))
