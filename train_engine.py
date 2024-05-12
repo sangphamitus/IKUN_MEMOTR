@@ -21,8 +21,7 @@ from models.criterion import build as build_criterion, ClipCriterion
 from models.utils import get_model, save_checkpoint, load_checkpoint
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import MultiStepLR, CosineAnnealingLR
-from log.logger import Logger, ProgressLogger
-from log.log import MetricLog
+from logger import Logger, ProgressLogger,MetricLog
 from models.utils import load_pretrained_model
 
 

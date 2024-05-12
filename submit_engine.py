@@ -16,7 +16,7 @@ from models.runtime_tracker import RuntimeTracker
 from utils.utils import yaml_to_dict, is_distributed, distributed_world_size, distributed_rank, inverse_sigmoid
 from utils.nested_tensor import tensor_list_to_nested_tensor
 from utils.box_ops import box_cxcywh_to_xyxy
-from log.logger import Logger
+from logger import Logger, ProgressLogger,MetricLog
 from data.seq_dataset import SeqDataset
 from structures.track_instances import TrackInstances
 
