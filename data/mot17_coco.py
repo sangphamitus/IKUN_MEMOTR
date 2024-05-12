@@ -54,7 +54,7 @@ class MOT17_COCO(MOTDataset):
             self.unified_random_state = None
 
         assert split == "train", f"Split {split} is NOT supported."
-        self.mot17_seqs_dir = os.path.join(config["DATA_ROOT"], config["DATASET"].split("_")[0], "images", split)
+        self.mot17_seqs_dir = os.path.join(config["DATA_ROOT"], config["DATASET"].split("_")[0], "images", split).replace("MOT17/MOT17", "MOT17")
         self.mot17_gts_dir = os.path.join(config["DATA_ROOT"], config["DATASET"].split("_")[0], "gts", split)
         self.crowdhuman_seq_dir = os.path.join(config["DATA_ROOT"], "CrowdHuman", "images", "val")
         self.crowdhuman_gts_dir = os.path.join(config["DATA_ROOT"], "CrowdHuman", "gts", "val")
