@@ -12,7 +12,8 @@ from utils.nested_tensor import NestedTensor
 from structures.track_instances import TrackInstances
 import clip
 import torchvision.transforms as T
-
+from transformers import RobertaTokenizerFast
+from transformers import pipeline
 def tokenize(text):
     token = clip.tokenize(text)
     return token
@@ -218,11 +219,13 @@ class IKUN_Model(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.clip = load_clip(
-         "{}.pt".format(config["CLIP_MODEL"]),
-            input_resolution=224,
-        )
-        self.clip = self.clip.float()
+        # self.clip = load_clip(
+        #  "{}.pt".format(config["CLIP_MODEL"]),
+        #     input_resolution=224,
+        # )
+        # self.clip = self.clip.float()
+        self.roberta= RobertaTokenizerFast.from_pretrained("FacebookAI/roberta-base")
+        
         self.img_dim = 2048
         self.text_dim = 1024
         self.img_fc = self.get_img_fc(use_ln=False)
@@ -234,7 +237,7 @@ class IKUN_Model(nn.Module):
             num_heads=4,
             dropout=0.,
         )
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # self.device = torch.device("cpu")
         local_reso = 7 * 7
         local_scale = local_reso ** -0.5
@@ -269,10 +272,12 @@ class IKUN_Model(nn.Module):
         - list(self.clip.token_embedding.parameters())
         - [self.clip.positional_embedding]
         """
-        for p in list(self.clip.transformer.parameters()) + \
-                 list(self.clip.ln_final.parameters()) + \
-                 [self.clip.text_projection, ]:
-            p.requires_grad = False
+        # for p in list(self.clip.transformer.parameters()) + \
+        #          list(self.clip.ln_final.parameters()) + \
+        #          [self.clip.text_projection, ]:
+        #     p.requires_grad = False
+        # for p in list(self.roberta.parameters()):
+        #     p.requires_grad = False
 
     def _init_weights_function(self, m):
         if isinstance(m, nn.Linear):
@@ -310,8 +315,10 @@ class IKUN_Model(nn.Module):
 
     def forward(self, x,sentence, epoch=1e5):
         output = dict()
-        exp =  tokenize(expression_conversion(sentence)).to(torch.device("cpu"))
-        textual_hidden, textual_feat = self.textual_encoding(exp)
+        # exp =  tokenize(expression_conversion(sentence)).to(torch.device("cpu"))
+        # textual_hidden, textual_feat = self.textual_encoding(exp)
+        textual_feat  = torch.tensor( self.roberta(sentence)["input_ids"],device=self.device)
+        textual_hidden  = textual_feat
         if self.config["KUM_MODE"] and (epoch >= self.config["TG_EPOCH"]):
             if self.config["KUM_MODE"] == 'cascade attention':
                 visual_feat = self.visual_local_global(
@@ -474,7 +481,7 @@ class MeMOTR_IKUN(nn.Module):
         super().__init__()
         self.memotr_model = memotr_model
         self.ikun_model = IKUN_Model(config=config)
-        # self.ikun_model.to(self.ikun_model.device)
+        self.ikun_model.to(self.ikun_model.device)
 
     def forward(self,  frame: NestedTensor, tracks: list[TrackInstances],ret_frame,sentence:str, epoch=1e5):
         ikun_func=self.ikun_model

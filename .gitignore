@@ -13,3 +13,4 @@ build
 dist
 MultiScaleDeformableAttention.egg-info
 *.json
+.vscode
