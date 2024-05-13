@@ -234,7 +234,7 @@ class IKUN_Model(nn.Module):
             num_heads=4,
             dropout=0.,
         )
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # self.device = torch.device("cpu")
         local_reso = 7 * 7
         local_scale = local_reso ** -0.5
@@ -390,10 +390,12 @@ class IKUN_Model(nn.Module):
         t = global_img.shape[0]
         # spatial encoding
         # local_img = rearrange(local_img, 'b t c h w -> (b t) c h w')
-        local_feat = self.clip.visual(local_img)  # [bt,c,7,7]
+        # local_feat = self.clip.visual(local_img)  # [bt,c,7,7]
+        local_feat = local_img
         bt, c, h, w = local_feat.size()
         # global_img = rearrange(global_img, 'B T C H W -> (B T) C H W')
-        global_feat = self.clip.visual(global_img)  # [bt,c,7,7]
+        global_feat = global_img # [bt,c,7,7]
+        # global_feat = self.clip.visual(global_img)  # [bt,c,7,7]
         bt, c, H, W = global_feat.size()
         # rearrange
         local_feat = rearrange(local_feat, 'bt c h w -> bt c (h w)')
@@ -474,7 +476,7 @@ class MeMOTR_IKUN(nn.Module):
         super().__init__()
         self.memotr_model = memotr_model
         self.ikun_model = IKUN_Model(config=config)
-        # self.ikun_model.to(self.ikun_model.device)
+        self.ikun_model.to(self.ikun_model.device)
 
     def forward(self,  frame: NestedTensor, tracks: list[TrackInstances],ret_frame,sentence:str, epoch=1e5):
         ikun_func=self.ikun_model

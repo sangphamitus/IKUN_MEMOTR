@@ -193,12 +193,12 @@ class MeMOTR(nn.Module):
         bboxes= box_cxcywh_to_xyxy(output_bboxes[-1][0]) * torch.as_tensor([width, height, width, height], dtype=torch.int).cuda()
         x={
             "local_img":  torch.stack(
-                [ikun_func.transform[0](
+                [ikun_func.clip.visual(ikun_func.transform[0](
                     ret_frame[0].crop(torch.clamp(box,0).cpu().numpy())
-                ) for box in bboxes],
-                dim=0
-            ),
-            "global_img":torch.stack([ikun_func.transform[2](ret_frame[0]) for _ in bboxes],dim=0)
+                ).unsqueeze(0).to(ikun_func.device)) for box in bboxes],
+                dim=0,
+            ).to(ikun_func.device),
+            "global_img":torch.stack([ikun_func.clip.visual(ikun_func.transform[2](ret_frame[0]).unsqueeze(0).to(ikun_func.device)) for _ in bboxes],dim=0).to(ikun_func.device)
         }
         mask_check_box = ikun_func(x,sentence=sentence, epoch=epoch)
         n_last_det=len(mask_check_box)-self.n_det_queries
