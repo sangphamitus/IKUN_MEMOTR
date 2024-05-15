@@ -214,18 +214,28 @@ class FFN(nn.Module):
         x = self.norm(x)
         return x
 
+from clip.model import AttentionPool2d
 
+class Id(AttentionPool2d):
+    def __init__(self, x=0,y=0,z=0):
+        super(Id, self).__init__(x,y,z)
+    def forward(self, x):
+        x = x.cuda()
+        return x
+    
 class IKUN_Model(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        # self.clip = load_clip(
-        #  "{}.pt".format(config["CLIP_MODEL"]),
-        #     input_resolution=224,
-        # )
-        # self.clip = self.clip.float()
-        self.roberta= RobertaTokenizerFast.from_pretrained("FacebookAI/roberta-base")
-        
+        self.clip = load_clip(
+         "{}.pt".format(config["CLIP_MODEL"]),
+            input_resolution=224,
+        )
+        self.clip = self.clip.float()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.clip.visual.attnpool = Id().to(self.device)
+
         self.img_dim = 2048
         self.text_dim = 1024
         self.img_fc = self.get_img_fc(use_ln=False)
@@ -313,12 +323,12 @@ class IKUN_Model(nn.Module):
                 if p.dim() > 1:
                     nn.init.xavier_uniform_(p)
 
-    def forward(self, x,sentence, epoch=1e5):
+    def forward(self, x, sentence, epoch=1e5):
         output = dict()
-        # exp =  tokenize(expression_conversion(sentence)).to(torch.device("cpu"))
-        # textual_hidden, textual_feat = self.textual_encoding(exp)
-        textual_feat  = torch.tensor( self.roberta(sentence)["input_ids"],device=self.device)
-        textual_hidden  = textual_feat
+        exp =  tokenize(expression_conversion(sentence)).to(self.device)
+        textual_hidden, textual_feat = self.textual_encoding(exp)
+        # textual_feat  = torch.tensor( self.roberta(sentence)["input_ids"],device=self.device)
+        # textual_hidden  = textual_feat
         if self.config["KUM_MODE"] and (epoch >= self.config["TG_EPOCH"]):
             if self.config["KUM_MODE"] == 'cascade attention':
                 visual_feat = self.visual_local_global(
@@ -340,8 +350,8 @@ class IKUN_Model(nn.Module):
         # spatial pooling
         feat = F.adaptive_avg_pool1d(feat, 1).squeeze()  # [bt,c,l]->[bt,c]
         # temporal pooling
-        feat = rearrange(feat, '(b t) c -> b c t', b=bs)
-        feat = F.adaptive_avg_pool1d(feat, 1).squeeze()  # [b,c]
+        # feat = rearrange(feat, '(b t) c -> b c t', b=bs)
+        # feat = F.adaptive_avg_pool1d(feat, 1).squeeze()  # [b,c]
         # projection
         feat = self.img_fc(feat)
         return feat
@@ -483,9 +493,9 @@ class MeMOTR_IKUN(nn.Module):
         self.ikun_model = IKUN_Model(config=config)
         self.ikun_model.to(self.ikun_model.device)
 
-    def forward(self,  frame: NestedTensor, tracks: list[TrackInstances],ret_frame,sentence:str, epoch=1e5):
-        ikun_func=self.ikun_model
-        memotr_output = self.memotr_model(frame=frame,tracks=tracks,ret_frame=ret_frame,ikun_func=ikun_func,epoch=epoch,sentence=sentence)
+
+    def forward(self,  frame: NestedTensor, tracks: list[TrackInstances]):
+        memotr_output = self.memotr_model(frame=frame,tracks=tracks)
 
         return  memotr_output
 

@@ -36,6 +36,25 @@ class TrackInstances:
         self.long_memory = torch.zeros((0, self.hidden_dim), dtype=torch.float)
         self.last_appear_boxes = torch.zeros((0, 4))
 
+    
+    def removePosition(self, idx: int):
+        self.ref_pts = torch.cat((self.ref_pts[:idx], self.ref_pts[idx + 1:]))
+        self.query_embed = torch.cat((self.query_embed[:idx], self.query_embed[idx + 1:]))
+        self.ids = torch.cat((self.ids[:idx], self.ids[idx + 1:]))
+        self.boxes = torch.cat((self.boxes[:idx], self.boxes[idx + 1:]))
+        self.labels = torch.cat((self.labels[:idx], self.labels[idx + 1:]))
+        self.logits = torch.cat((self.logits[:idx], self.logits[idx + 1:]))
+        self.matched_idx = torch.cat((self.matched_idx[:idx], self.matched_idx[idx + 1:]))
+        self.output_embed = torch.cat((self.output_embed[:idx], self.output_embed[idx + 1:]))
+        self.disappear_time = torch.cat((self.disappear_time[:idx], self.disappear_time[idx + 1:]))
+        self.scores = torch.cat((self.scores[:idx], self.scores[idx + 1:]))
+        self.area = torch.cat((self.area[:idx], self.area[idx + 1:]))
+        self.iou = torch.cat((self.iou[:idx], self.iou[idx + 1:]))
+        self.last_output = torch.cat((self.last_output[:idx], self.last_output[idx + 1:]))
+        self.long_memory = torch.cat((self.long_memory[:idx], self.long_memory[idx + 1:]))
+        self.last_appear_boxes = torch.cat((self.last_appear_boxes[:idx], self.last_appear_boxes[idx + 1:]))
+    
+
     def to(self, device):
         res = TrackInstances(frame_height=self.frame_height, frame_width=self.frame_width,
                              hidden_dim=self.hidden_dim, num_classes=self.num_classes)

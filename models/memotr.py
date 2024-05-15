@@ -186,20 +186,6 @@ class MeMOTR(nn.Module):
 
         output_classes = torch.stack(output_classes, dim=0)
         output_bboxes = torch.stack(output_bboxes, dim=0)
-        print(" sen {}".format(sentence))
-        print(" outputs {}".format(outputs[-1]))
-        oriImage=ikun_func.transform[2](ret_frame[0])
-        x={
-            "local_img": outputs[-1][0].to(ikun_func.device) ,
-            "global_img":torch.stack([oriImage for _ in range(outputs[-1][0].shape[0])],dim=0).to(ikun_func.device)
-        }
-        mask_check_box = ikun_func(x,sentence=sentence, epoch=epoch)
-        n_last_det=len(mask_check_box)-self.n_det_queries
-        mask_last=mask_check_box.squeeze(1)[len(mask_check_box)-n_last_det:].clone()
-        temp_mask=mask_check_box.squeeze(1).clone()
-        if n_last_det>0:
-            temp_mask[len(mask_check_box)-n_last_det:]=True
-        new_det=torch.sum(temp_mask)
 
         res = {
             "pred_logits": output_classes[-1],

@@ -21,7 +21,7 @@ from .matcher import build as build_matcher, HungarianMatcher
 from structures.track_instances import TrackInstances
 from utils.box_ops import generalized_box_iou, box_cxcywh_to_xyxy, box_iou_union
 from utils.utils import is_distributed, distributed_world_size
-
+from PIL import Image
 
 class ClipCriterion:
     def __init__(self, num_classes, matcher: HungarianMatcher, n_det_queries, aux_loss: bool, weight: dict,
@@ -135,7 +135,7 @@ class ClipCriterion:
                     break
         return loss, log
 
-    def process_single_frame(self, model_outputs: dict, tracked_instances: List[TrackInstances], frame_idx: int):
+    def process_single_frame(self, model_outputs: dict, tracked_instances: List[TrackInstances], frame_idx: int,sentence:str,ori_img:Image,ikun_model):
         """
         Process this criterion for a single frame.
 
@@ -351,6 +351,7 @@ class ClipCriterion:
             tracked_instances[b] = tracked_instances[b].to(self.device)
             new_trackinstances[b] = new_trackinstances[b].to(self.device)
 
+
         # Compute IoU.
         for b in range(len(tracked_instances)):
             new_trackinstances[b].iou[new_trackinstances[b].matched_idx >= 0] = torch.diag(box_iou_union(
@@ -366,6 +367,19 @@ class ClipCriterion:
                                    .matched_idx].boxes)
             )[0])
             pass
+        device = ikun_model.device
+        width,height=ori_img.size[1],ori_img.size[0]
+        # 12. Process the sentence
+        boxes = box_cxcywh_to_xyxy(new_trackinstances[-1].boxes)
+        boxes = (boxes * torch.as_tensor([width, height, width, height], dtype=torch.float).to(device))
+        transform_ori_img = ikun_model.transform[2](ori_img)
+        x= {
+            "local_img": torch.stack([ikun_model.transform[0](ori_img.crop(box.cpu().numpy())) for box in boxes],dim=0).to(device),
+            "global_img": torch.stack([transform_ori_img for _ in range(len(boxes)) ],dim=0).to(device),
+        }
+        # x["local_img"] = x["local_img"].unsqueeze(0)
+        # x["global_img"] = x["global_img"].unsqueeze(0)
+        mask = ikun_model(x,sentence)
 
         return tracked_instances, new_trackinstances, unmatched_detections
 

@@ -205,11 +205,14 @@ def train_one_epoch(model: MeMOTR_IKUN, train_states: dict, max_norm: float,
                     f.requires_grad_(False)
                 frame = tensor_list_to_nested_tensor(tensor_list=frame).to(device)
                 sentence=batch["sentence"][0]
-                res = model(frame=frame, tracks=tracks,sentence=sentence,ret_frame=ret_frame)
+                res = model(frame=frame, tracks=tracks)
                 previous_tracks, new_tracks, unmatched_dets = criterion.process_single_frame(
                     model_outputs=res,
                     tracked_instances=tracks,
-                    frame_idx=frame_idx
+                    frame_idx=frame_idx,
+                    sentence=sentence,
+                    ori_img=ret_frame[0],
+                    ikun_model=model.ikun_model
                 )
                 if frame_idx < len(batch["imgs"][0]) - 1:
                     tracks = get_model(model).memotr_model.postprocess_single_frame(
