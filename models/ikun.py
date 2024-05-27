@@ -14,6 +14,8 @@ import clip
 import torchvision.transforms as T
 from transformers import RobertaTokenizerFast
 from transformers import pipeline
+from .model4 import Model4,build_model4
+from models.inter_model.blip_module import BLIP_MODULE
 def tokenize(text):
     token = clip.tokenize(text)
     return token
@@ -27,6 +29,22 @@ WORDS_MAPPING = {
     'females': 'women',
     'light-colors': 'light-color',
 }
+
+def load_from_ckpt(model, ckpt_path, model_name='model'):
+    print(f'load from {ckpt_path}...')
+    ckpt = torch.load(ckpt_path)
+    epoch = ckpt['epoch']
+
+    temp=model.state_dict()
+    pretrained_keys = list(ckpt[model_name].keys())
+    for key in pretrained_keys:
+        if "module.clip.visual.attnpool" in key:
+            continue
+        temp[key.replace('module.', '')] = ckpt[model_name][key]
+
+    model.load_state_dict(temp)
+    return model, epoch
+
 def expression_conversion(expression):
     """expression => expression_new"""
     expression = expression.replace('-', ' ').replace('light color', 'light-color')
@@ -323,9 +341,9 @@ class IKUN_Model(nn.Module):
                 if p.dim() > 1:
                     nn.init.xavier_uniform_(p)
 
-    def forward(self, x, sentence, epoch=1e5):
+    def forward(self, x, epoch=1e5):
         output = dict()
-        exp =  tokenize(expression_conversion(sentence)).to(self.device)
+        exp =  x['exp'].to(self.device)
         textual_hidden, textual_feat = self.textual_encoding(exp)
         # textual_feat  = torch.tensor( self.roberta(sentence)["input_ids"],device=self.device)
         # textual_hidden  = textual_feat
@@ -447,7 +465,7 @@ class IKUN_Model(nn.Module):
             )
         else:
             fusion_feat = rearrange(fusion_feat, 'HW bt c -> bt c HW')
-        fusion_feat = self.st_pooling(fusion_feat, bs=b)
+        fusion_feat = self.st_pooling(fusion_feat, bs=t)
         if self.training:
             return fusion_feat
         else:
@@ -490,9 +508,14 @@ class MeMOTR_IKUN(nn.Module):
     def __init__(self, memotr_model:MeMOTR, config: dict):
         super().__init__()
         self.memotr_model = memotr_model
-        self.ikun_model = IKUN_Model(config=config)
-        self.ikun_model.to(self.ikun_model.device)
-
+        # self.ikun_model = IKUN_Model(config=config)
+        # self.ikun_model,_ = load_from_ckpt(self.ikun_model, "D:\\Thesis\\DamnShit\\Hello\\MeMOTR_IKUN\\ikun\\iKUN_cascade_attention.pth")
+        # self.ikun_model.to(self.ikun_model.device)
+        # self.model4 = build_model4(config=config)
+        # load_state = torch.load("D:\Thesis\DamnShit\Hello\MeMOTR_IKUN\checkpoint_1.8.pth", map_location="cpu")
+        # self.model4.load_state_dict(load_state["model"])
+        # self.model4.to(self.model4.device)
+        self.model4 = BLIP_MODULE(device=config["DEVICE"])
 
     def forward(self,  frame: NestedTensor, tracks: list[TrackInstances]):
         memotr_output = self.memotr_model(frame=frame,tracks=tracks)

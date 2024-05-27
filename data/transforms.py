@@ -165,6 +165,8 @@ class MultiRandomCrop:
 
                 for field in ["labels", "ids", "boxes", "areas"]:
                     info[field] = info[field][keep_idxs]
+                
+                info["sentences"] = [info["sentences"][i] for i, keep in enumerate(keep_idxs) if keep]
             return cropped_img, info
 
         return zip(*[crop(img, info, ijhw=crop_ijhw) for img, info in zip(imgs, infos)])

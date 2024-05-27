@@ -22,6 +22,23 @@ from structures.track_instances import TrackInstances
 from utils.box_ops import generalized_box_iou, box_cxcywh_to_xyxy, box_iou_union
 from utils.utils import is_distributed, distributed_world_size
 from PIL import Image
+from .visualize import Visualizer
+import clip
+from .ikun import tokenize, expression_conversion
+
+def cut_image_from_bbox( image, boxes):
+    left = torch.clamp(boxes[:, 0], 0).tolist()
+    top = torch.clamp(boxes[:, 1], 0).tolist()
+    right = torch.clamp(boxes[:, 2], 0).tolist()
+    bottom = torch.clamp(boxes[:, 3], 0).tolist()
+    cropped_image =[]
+    
+    for i in range(len(left)):
+        img=image.copy().crop((left[i], top[i], right[i], bottom[i]))
+        cropped_image.append(img)
+
+    return cropped_image
+
 
 class ClipCriterion:
     def __init__(self, num_classes, matcher: HungarianMatcher, n_det_queries, aux_loss: bool, weight: dict,
@@ -50,6 +67,7 @@ class ClipCriterion:
         self.aux_weights = aux_weights                      # different weights for different DETR layers
         self.hidden_dim = hidden_dim
         self.merge_det_track_layer = merge_det_track_layer
+        self.visualizer = Visualizer(save_dir="D:\\Thesis\\DamnShit\\Hello\\MeMOTR_IKUN\Visual")
 
         self.gt_trackinstances_list: None | List[List[TrackInstances]] = None     # (clip_size, B)
         self.loss = {}
@@ -135,7 +153,7 @@ class ClipCriterion:
                     break
         return loss, log
 
-    def process_single_frame(self, model_outputs: dict, tracked_instances: List[TrackInstances], frame_idx: int,sentence:str,ori_img:Image,ikun_model):
+    def process_single_frame(self, model_outputs: dict, tracked_instances: List[TrackInstances], frame_idx: int,sentences:str,ori_img:Image,ikun_model):
         """
         Process this criterion for a single frame.
 
@@ -371,15 +389,38 @@ class ClipCriterion:
         width,height=ori_img.size[1],ori_img.size[0]
         # 12. Process the sentence
         boxes = box_cxcywh_to_xyxy(new_trackinstances[-1].boxes)
-        boxes = (boxes * torch.as_tensor([width, height, width, height], dtype=torch.float).to(device))
-        transform_ori_img = ikun_model.transform[2](ori_img)
-        x= {
-            "local_img": torch.stack([ikun_model.transform[0](ori_img.crop(box.cpu().numpy())) for box in boxes],dim=0).to(device),
-            "global_img": torch.stack([transform_ori_img for _ in range(len(boxes)) ],dim=0).to(device),
-        }
-        # x["local_img"] = x["local_img"].unsqueeze(0)
-        # x["global_img"] = x["global_img"].unsqueeze(0)
-        mask = ikun_model(x,sentence)
+        boxes = (boxes * torch.as_tensor([width,height, width, height], dtype=torch.float).to(device))
+        arr=[box for i,box in enumerate(boxes)]
+        tensorBoxes=torch.Tensor([])
+        if len(arr)>0:
+            tensorBoxes = torch.stack(arr,dim=0)
+        print("bboxes {} , size = {}".format(arr,ori_img.size))
+        print("len {}".format(len(arr)))
+        crop_image=cut_image_from_bbox(ori_img,tensorBoxes)
+    
+        # self.visualizer(ori_img,tensorBoxes,sentences,torch.Tensor([]))
+        if len(boxes) >0:
+            crop_image[0].show()
+        #     boxes = (boxes * torch.as_tensor([width,height, width, height], dtype=torch.float).to(device))
+            transform_ori_img = ikun_model.transform[2](ori_img)
+            x= {
+                "local_img": torch.stack([ikun_model.transform[0](ori_img.crop(box.cpu().numpy())) for box in boxes],dim=0).to(device),
+                "exp":tokenize(expression_conversion(sentences)),
+                "global_img": torch.stack([transform_ori_img for _ in range(len(boxes)) ],dim=0).to(device),
+            }
+
+            mask = ikun_model(x)
+        #     remove_pos=0
+        #     arr=[box for i,box in enumerate(boxes) if mask['logits'][i].item() >-2 ]
+        #     tensorBoxes=torch.Tensor([])
+        #     if len(arr)>0:
+        #         tensorBoxes = torch.stack(arr,dim=0)
+        #     self.visualizer(ori_img,tensorBoxes,sentence,mask['logits'])
+            # for i in range(len(mask['logits'])):
+            #     if mask['logits'][i].item() > 0:
+            #         new_trackinstances[-1].removePosition(remove_pos)
+            #     else:
+            #         remove_pos+=1
 
         return tracked_instances, new_trackinstances, unmatched_detections
 

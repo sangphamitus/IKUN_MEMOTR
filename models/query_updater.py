@@ -74,6 +74,8 @@ class QueryUpdater(nn.Module):
                 new_tracks: List[TrackInstances],
                 unmatched_dets: List[TrackInstances] | None,
                 no_augment: bool = False):
+        
+      
         tracks = self.select_active_tracks(previous_tracks, new_tracks, unmatched_dets, no_augment=no_augment)
         tracks = self.update_tracks_embedding(tracks=tracks)
 

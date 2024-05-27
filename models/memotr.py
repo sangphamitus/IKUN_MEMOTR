@@ -103,7 +103,7 @@ class MeMOTR(nn.Module):
             self.class_embed = nn.ModuleList([self.class_embed for _ in range(self.transformer.get_n_dec_layers())])
             self.bbox_embed = nn.ModuleList([self.bbox_embed for _ in range(self.transformer.get_n_dec_layers())])
 
-    def forward(self, frame: NestedTensor, tracks: list[TrackInstances],ret_frame=None,ikun_func=None,epoch=None,sentence=""):
+    def forward(self, frame: NestedTensor, tracks: list[TrackInstances]):
         if self.visualize:
             os.makedirs("./outputs/visualize_tmp/memotr/", exist_ok=True)
 

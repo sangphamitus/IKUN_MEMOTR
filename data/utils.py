@@ -9,6 +9,4 @@ def collate_fn(batch):
     for data in batch:
         collated_batch["imgs"].append(data["imgs"])
         collated_batch["infos"].append(data["infos"])
-        collated_batch["sentence"].append(data["sentence"])
-        collated_batch["ori_imgs"].append(data["ori_imgs"])
     return collated_batch

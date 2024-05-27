@@ -23,7 +23,7 @@ from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import MultiStepLR, CosineAnnealingLR
 from logger import Logger, ProgressLogger,MetricLog
 from models.utils import load_pretrained_model
-
+from PIL import Image
 
 def train(config: dict):
     train_logger = Logger(logdir=os.path.join( config["OUTPUTS_DIR"], "train"), only_main=True)
@@ -42,6 +42,17 @@ def train(config: dict):
     sampler_train = build_sampler(dataset=dataset_train, shuffle=True)
     dataloader_train = build_dataloader(dataset=dataset_train, sampler=sampler_train,
                                         batch_size=config["BATCH_SIZE"], num_workers=config["NUM_WORKERS"])
+    
+    if config['GET_DATA_SUBSET'] is True and config['SUBSET_LENGTH'] > 0:
+        print("Running on subset of first {} data samples.".format(config['SUBSET_LENGTH']))
+        from torch.utils.data.sampler import SubsetRandomSampler
+        split = config['SUBSET_LENGTH']
+        indices = list(range(len(dataset_train)))
+        train_indices = indices[:split]
+        sampler_train = SubsetRandomSampler(train_indices)
+        dataloader_train = build_dataloader(dataset=dataset_train, sampler=sampler_train,
+                                            batch_size=config["BATCH_SIZE"],num_workers=config["NUM_WORKERS"])
+
 
     # Criterion
     criterion = build_criterion(config=config)
@@ -95,9 +106,9 @@ def train(config: dict):
             sampler_train.set_epoch(epoch)
         dataset_train.set_epoch(epoch)
 
-        sampler_train = build_sampler(dataset=dataset_train, shuffle=True)
-        dataloader_train = build_dataloader(dataset=dataset_train, sampler=sampler_train,
-                                            batch_size=config["BATCH_SIZE"], num_workers=config["NUM_WORKERS"])
+        # sampler_train = build_sampler(dataset=dataset_train, shuffle=True)
+        # dataloader_train = build_dataloader(dataset=dataset_train, sampler=sampler_train,
+        #                                     batch_size=config["BATCH_SIZE"], num_workers=config["NUM_WORKERS"])
 
         if epoch >= config["ONLY_TRAIN_QUERY_UPDATER_AFTER"]:
             optimizer.param_groups[0]["lr"] = 0.0
@@ -185,7 +196,9 @@ def train_one_epoch(model: MeMOTR_IKUN, train_states: dict, max_norm: float,
     dataloader_len = len(dataloader)
     metric_log = MetricLog()
     epoch_start_timestamp = time.time()
+
     for i, batch in enumerate(dataloader):
+        
         print("line 191")
         iter_start_timestamp = time.time()
         tracks = TrackInstances.init_tracks(batch=batch,
@@ -198,20 +211,20 @@ def train_one_epoch(model: MeMOTR_IKUN, train_states: dict, max_norm: float,
                               device=device)
 
         for frame_idx in range(len(batch["imgs"][0])):
+            sentences = batch["infos"][0][frame_idx]["sentences"]
             if no_grad_frames is None or frame_idx >= no_grad_frames:
                 frame = [fs[frame_idx] for fs in batch["imgs"]]
-                ret_frame =[fs[frame_idx] for fs in batch["ori_imgs"]]
+                ret_frame =[fs[frame_idx] for fs in batch["infos"]]
                 for f in frame:
                     f.requires_grad_(False)
                 frame = tensor_list_to_nested_tensor(tensor_list=frame).to(device)
-                sentence=batch["sentence"][0]
                 res = model(frame=frame, tracks=tracks)
                 previous_tracks, new_tracks, unmatched_dets = criterion.process_single_frame(
                     model_outputs=res,
                     tracked_instances=tracks,
                     frame_idx=frame_idx,
-                    sentence=sentence,
-                    ori_img=ret_frame[0],
+                    sentences=sentences,
+                    ori_img=Image.open( ret_frame[0]["frame_path"]),
                     ikun_model=model.ikun_model
                 )
                 if frame_idx < len(batch["imgs"][0]) - 1:

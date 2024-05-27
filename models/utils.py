@@ -33,7 +33,7 @@ def load_checkpoint(model: nn.Module, path: str, states: dict = None,
     load_state = torch.load(path, map_location="cpu")
 
     if is_main_process():
-        model.load_state_dict(load_state["model"])
+        model.memotr_model.load_state_dict(load_state["model"])
     else:
         pass
     if optimizer is not None:
