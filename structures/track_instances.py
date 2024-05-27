@@ -35,6 +35,8 @@ class TrackInstances:
         self.last_output = torch.zeros((0, self.hidden_dim), dtype=torch.float)
         self.long_memory = torch.zeros((0, self.hidden_dim), dtype=torch.float)
         self.last_appear_boxes = torch.zeros((0, 4))
+        self.probs = []
+        self.first_images=[]
 
     
     def removePosition(self, idx: int):
@@ -53,7 +55,13 @@ class TrackInstances:
         self.last_output = torch.cat((self.last_output[:idx], self.last_output[idx + 1:]))
         self.long_memory = torch.cat((self.long_memory[:idx], self.long_memory[idx + 1:]))
         self.last_appear_boxes = torch.cat((self.last_appear_boxes[:idx], self.last_appear_boxes[idx + 1:]))
-    
+        self.probs.pop(idx)
+        self.first_images.pop(idx)
+    def setFirstImage(self,first_images,probs):
+        self.first_images=first_images
+        self.probs=probs
+    def setProbs(self,probs):
+        self.probs=probs
 
     def to(self, device):
         res = TrackInstances(frame_height=self.frame_height, frame_width=self.frame_width,
@@ -77,10 +85,18 @@ class TrackInstances:
         res = TrackInstances(frame_height=self.frame_height, frame_width=self.frame_width,
                              hidden_dim=self.hidden_dim, num_classes=self.num_classes)
         for k, v in vars(self).items():
-            if hasattr(v, "__getitem__") and v.shape[0] != 0:
-                res.__setattr__(k, v[item])
+            if k == "first_images" or k == "probs":
+                result=[]
+                for i in range(len(item)):
+                    flag = item[i].item() if type(item) == torch.Tensor else item[i]
+                    if flag:
+                        result.append(v[i])
+                res.__setattr__(k,result)
             else:
-                res.__setattr__(k, v)
+                if hasattr(v, "__getitem__") and v.shape[0] != 0:
+                    res.__setattr__(k, v[item])
+                else:
+                    res.__setattr__(k, v)
         return res
 
     @staticmethod
@@ -110,6 +126,8 @@ class TrackInstances:
         for k, v in vars(tracked1).items():
             if type(v) is torch.Tensor:
                 res.__setattr__(k, torch.cat((getattr(tracked1, k), getattr(tracked2, k))))
+            if type(v) is list:
+                res.__setattr__(k, getattr(tracked1, k)+getattr(tracked2, k))
         return res
 
     @staticmethod

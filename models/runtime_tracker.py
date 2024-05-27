@@ -9,7 +9,6 @@ from .motion import Motion
 
 from structures.track_instances import TrackInstances
 
-
 class RuntimeTracker:
     def __init__(self, det_score_thresh: float = 0.7, track_score_thresh: float = 0.6,
                  miss_tolerance: int = 5,
@@ -26,7 +25,9 @@ class RuntimeTracker:
         self.motions: Dict[Motion] = {}
         self.use_dab = use_dab
 
-    def update(self, model_outputs: dict, tracks: List[TrackInstances]):
+    def update(self, model_outputs: dict, tracks: List[TrackInstances],
+               temp_img=None,inter_module=None,caption="",
+               threshold=0.5,width=None,height=None):
         assert len(tracks) == 1
         model_outputs["scores"] = logits_to_scores(model_outputs["pred_logits"])
         n_dets = len(model_outputs["det_query_embed"])
@@ -81,6 +82,26 @@ class RuntimeTracker:
         if self.use_motion:
             new_tracks.last_appear_boxes = model_outputs["pred_bboxes"][0][:n_dets][new_tracks_idxes]
         ids = []
+           # ================== INTER MODEL ==================
+        old_images=tracks[-1].first_images
+        _probs,crop_image= inter_module.predict(caption=caption, temp_img=temp_img, new_bbox=new_tracks.boxes,width=width,height=height,old_images=old_images)
+        mask=_probs>threshold
+        new_image_len=len(new_tracks.boxes)
+        previous_image_len=len(tracks[-1].boxes)
+        probs = _probs.tolist()
+        latency=0
+        new_tracks.setFirstImage(crop_image,probs[:new_image_len])
+        for i in range(new_image_len):
+            if mask[i] == False:
+                new_tracks.removePosition(i-latency)
+                latency+=1
+        latency=0
+        tracks[-1].setProbs(probs[new_image_len:])
+        for i in range(previous_image_len):
+            if mask[i+new_image_len] == False:
+                tracks[-1].removePosition(i-latency)
+                latency+=1
+        # =================================================
         for i in range(len(new_tracks)):
             ids.append(self.max_obj_id)
             self.max_obj_id += 1
@@ -97,5 +118,6 @@ class RuntimeTracker:
             visualize_ids += ids
             torch.save(torch.as_tensor(visualize_ids),
                        "./outputs/visualize_tmp/runtime_tracker/ids.tensor")
-
+            
+     
         return tracks, [new_tracks]
